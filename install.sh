@@ -1,11 +1,11 @@
 #!/bin/sh
 # Installs smash into ~/.local/bin.
-#   curl -fsSL https://smash.kerneltheory.com/install.sh | sh
-#   curl -fsSL https://smash.kerneltheory.com/install.sh | sh -s -- v0.1.0
+#   curl -fsSL https://keysmash.website/install.sh | sh
+#   curl -fsSL https://keysmash.website/install.sh | sh -s -- v0.1.0
 set -eu
 
 main() {
-	base="${SMASH_BASE:-https://smash.kerneltheory.com}"
+	base="${SMASH_BASE:-https://keysmash.website}"
 	version="${1:-latest}"
 	os=$(uname -s | tr '[:upper:]' '[:lower:]')
 	case "$os" in darwin | linux) ;; *) fail "unsupported OS: $os" ;; esac

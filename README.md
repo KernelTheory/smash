@@ -7,7 +7,7 @@ Every `export OPENAI_API_KEY=…`, `curl -H "Authorization: Bearer …"` or `mys
 smash scrubs those secrets once a day, in place, without touching the rest of your history. You keep your past commands, minus the credentials.
 
 ```sh
-curl -fsSL https://smash.kerneltheory.com/install.sh | sh
+curl -fsSL https://keysmash.website/install.sh | sh
 ```
 
 ```text
@@ -88,7 +88,7 @@ The first run works through your whole backlog, which can take a few minutes. Da
 smash update
 ```
 
-This checks `https://smash.kerneltheory.com` for a newer release. If there is one, it downloads the build for your platform, verifies its SHA-256 checksum and replaces `~/.local/bin/smash` in place. Your config, database and daily job are kept; the job uses the new version from its next run. Re-running the install command does the same.
+This checks `https://keysmash.website` for a newer release. If there is one, it downloads the build for your platform, verifies its SHA-256 checksum and replaces `~/.local/bin/smash` in place. Your config, database and daily job are kept; the job uses the new version from its next run. Re-running the install command does the same.
 
 ## Configuration
 

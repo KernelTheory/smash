@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-const defaultBase = "https://smash.kerneltheory.com"
+const defaultBase = "https://keysmash.website"
 
 // selfUpdate replaces the binary install.sh put in ~/.local/bin with the latest release, if newer.
 // The daily job points at that same path, so it picks up the new version on its next run.

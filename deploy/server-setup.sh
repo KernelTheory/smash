@@ -1,10 +1,12 @@
 #!/bin/sh
 # One-time setup of an nginx host serving smash releases over HTTPS (run with sudo on the server).
 # ACME webroot on :80 (/var/www/certbot), Let's Encrypt certificate on :443. Safe to re-run.
-# Prerequisite: a DNS A record for the domain pointing at this server.
-#   scp deploy/server-setup.sh you@your-server:/tmp/ && ssh -t you@your-server sudo SMASH_DOMAIN=smash.example.com sh /tmp/server-setup.sh
+# Prerequisite: DNS A records for every domain pointing at this server.
+# SMASH_DOMAIN may list several names (the first one names the config and certificate):
+#   scp deploy/server-setup.sh you@your-server:/tmp/ && ssh -t you@your-server sudo SMASH_DOMAIN="example.com www.example.com" sh /tmp/server-setup.sh
 set -eu
-domain="${SMASH_DOMAIN:-smash.kerneltheory.com}"
+domains="${SMASH_DOMAIN:-keysmash.website}"
+domain="${domains%% *}"
 owner="${SMASH_OWNER:-${SUDO_USER:?run with sudo, or set SMASH_OWNER}}" # the user who deploys, without sudo
 root=/var/www/smash
 conf=/etc/nginx/sites-available/$domain
@@ -18,7 +20,7 @@ cat > "$conf" <<NGINX
 server {
     listen 80;
     listen [::]:80;
-    server_name $domain;
+    server_name $domains;
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
         allow all;
@@ -32,14 +34,14 @@ ln -sfn "$conf" "/etc/nginx/sites-enabled/$domain"
 nginx -t && systemctl reload nginx
 
 # 3. Certificate (renewed by the existing certbot timer).
-certbot certonly --webroot -w /var/www/certbot -d "$domain" --non-interactive --agree-tos --register-unsafely-without-email --keep-until-expiring
+certbot certonly --webroot -w /var/www/certbot $(for d in $domains; do printf -- "-d %s " "$d"; done) --non-interactive --agree-tos --register-unsafely-without-email --keep-until-expiring
 
 # 4. HTTPS block serving the static release files.
 cat >> "$conf" <<NGINX
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name $domain;
+    server_name $domains;
     ssl_certificate     /etc/letsencrypt/live/$domain/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/$domain/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;

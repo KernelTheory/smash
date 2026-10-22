@@ -41,9 +41,9 @@ smash is a CLI that removes secrets from shell history and AI coding-agent logs 
 - Limit: the key and the ciphertext share `~/.smash` (mode 600). This prevents plain-text exposure (synced or shared configs, grep, secret scanners), not malware running as the same user. A stronger option is the macOS Keychain with a signed binary.
 
 ## Distribution
-- `install.sh` installs to `~/.local/bin` from `$SMASH_BASE` (default `https://smash.kerneltheory.com`): `releases/<version|latest>/smash_<os>_<arch>.tar.gz`, verified against `checksums.txt`. On a fresh install with a terminal it runs `smash </dev/tty` for first-time setup (stdin is the script pipe); without a terminal or with `SMASH_NO_SETUP=1` it prints a hint; a reinstall keeps the existing setup.
+- `install.sh` installs to `~/.local/bin` from `$SMASH_BASE` (default `https://keysmash.website`): `releases/<version|latest>/smash_<os>_<arch>.tar.gz`, verified against `checksums.txt`. On a fresh install with a terminal it runs `smash </dev/tty` for first-time setup (stdin is the script pipe); without a terminal or with `SMASH_NO_SETUP=1` it prints a hint; a reinstall keeps the existing setup.
 - Releases are annotated git tags. `scripts/release.sh vX.Y.Z` refuses a dirty tree or an untagged `HEAD`, then builds darwin/linux × arm64/amd64 in Docker with `-X main.version` into `dist/` (laid out as served), plus `releases/<v>/VERSION` for `smash update`. `scripts/deploy.sh vX.Y.Z` with `SMASH_DEPLOY=user@host:/var/www/smash` uploads releases, `install.sh` and the landing page (`site/index.html`, `__VERSION__` replaced), then repoints `releases/latest`.
-- `deploy/server-setup.sh` is the one-time nginx + Let's Encrypt setup for the download host (run with sudo; `SMASH_DOMAIN`, `SMASH_OWNER`).
+- `deploy/server-setup.sh` is the one-time nginx + Let's Encrypt setup for the download host (run with sudo; `SMASH_DOMAIN` may list several names, e.g. apex and www; `SMASH_OWNER`). Old domains stay configured so installed copies that point at them can still update..
 
 ## Constraints
 - Build and test only in Docker (`compose.yaml`, `golang:1.27-trixie`): `docker compose run --rm go go test ./...`.
