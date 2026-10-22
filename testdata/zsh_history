@@ -1,0 +1,8 @@
+: 1729500000:0;ls -la
+: 1729500010:0;export OPENAI_API_KEY=sk-proj-DUMMY1234567890abcdef
+: 1729500020:0;curl -H "Authorization: Bearer ghp_DUMMYtoken0987654321" https://api.github.com/user
+: 1729500030:0;docker run -e DB_PASSWORD=hunter2 \\
+  -p 5432:5432 postgres:16
+: 1729500040:0;aws configure set aws_secret_access_key DUMMYwJalrXUtnFEMI/K7MDENG
+: 1729500050:0;git push origin main
+: 1729500060:0;echo "deploy ðƒ¿ƒº€ done"

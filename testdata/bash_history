@@ -1,0 +1,6 @@
+#1729500100
+mysql -u root -pS3cr3tPass! mydb
+#1729500110
+npm publish --otp=123456
+cd ~/code
+export STRIPE_SECRET_KEY=sk_live_DUMMY51Habcdefghijklmnop

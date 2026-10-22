@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>smash · scrub API keys from your shell history</title>
+<meta name="description" content="smash removes API keys and passwords from your shell history and Claude Code / Codex logs, every day, in place. One command to install on macOS and Linux.">
+<meta property="og:title" content="smash · scrub API keys from your shell history">
+<meta property="og:description" content="A daily secret scrubber for shell history and AI agent logs. Open source, MIT.">
+<meta property="og:url" content="https://smash.kerneltheory.com/">
+<meta name="theme-color" content="#f3f3f1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23111214'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='20' font-weight='700' fill='%23d4733a' text-anchor='middle'%3E*%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f3f3f1;
+    --panel: #f8f8f6;
+    --card: #ffffff;
+    --ink: #111214;
+    --muted: #5c6067;
+    --faint: #8a8e94;
+    --line: #d8d8d4;
+    --grid: rgba(17, 18, 20, 0.045);
+    --accent: #b0582a;
+    --accent-soft: rgba(176, 88, 42, 0.1);
+    --yellow: #f6d465;
+    --yellow-ink: #1a1608;
+    --ok: #2f7d4f;
+    --strike: rgba(176, 88, 42, 0.55);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1012;
+      --panel: #131417;
+      --card: #17181b;
+      --ink: #ededeb;
+      --muted: #a2a5ab;
+      --faint: #7a7e85;
+      --line: #2a2c30;
+      --grid: rgba(255, 255, 255, 0.035);
+      --accent: #e0793f;
+      --accent-soft: rgba(224, 121, 63, 0.12);
+      --yellow: #ecc955;
+      --yellow-ink: #17140a;
+      --ok: #5cc28a;
+      --strike: rgba(224, 121, 63, 0.6);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 36px 36px;
+    font: 15px/1.6 "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  code { font-family: inherit; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+
+  /* nav */
+  nav { border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: blur(6px); position: sticky; top: 0; z-index: 5; }
+  nav .wrap { display: flex; align-items: center; gap: 28px; height: 64px; }
+  .logo { font-weight: 700; font-size: 22px; text-decoration: none; letter-spacing: -0.02em; }
+  .logo b { color: var(--accent); font-weight: 700; }
+  .navlinks { display: flex; gap: 28px; margin: 0 auto; }
+  .navlinks a { text-decoration: none; color: var(--muted); }
+  .navlinks a:hover { color: var(--ink); }
+  .pill { border: 1px solid var(--line); padding: 6px 12px; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; background: var(--panel); white-space: nowrap; }
+  .pill.ver { color: var(--accent); }
+  .pill svg { width: 16px; height: 16px; fill: currentColor; }
+
+  /* frame */
+  .frame { border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 70%, transparent); }
+  .tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+  .tabs span { padding: 12px 18px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); border-right: 1px solid var(--line); }
+  .tabs span:first-child { color: var(--accent); }
+  .eyebrow { color: var(--muted); margin: 0 0 18px; }
+  .eyebrow i { color: var(--accent); font-style: normal; }
+
+  /* hero */
+  .hero { margin-top: 40px; }
+  .badge { display: inline-flex; gap: 10px; align-items: center; border: 1px solid var(--line); background: var(--panel); padding: 8px 14px; font-size: 13px; margin-bottom: 18px; text-decoration: none; }
+  .badge::before { content: ""; width: 8px; height: 8px; background: var(--accent); opacity: 0.6; }
+  .hero-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+  .hero-main { padding: 64px 56px 48px; border-right: 1px solid var(--line); }
+  h1 { font-size: clamp(56px, 8.4vw, 124px); line-height: 0.92; letter-spacing: -0.055em; font-weight: 800; margin: 0 0 32px; }
+  h1 .a { color: var(--accent); display: block; }
+  .lede { font-size: 17px; line-height: 1.75; color: color-mix(in srgb, var(--ink) 82%, var(--bg)); max-width: 640px; margin: 0 0 32px; }
+  .cmd { display: flex; border: 1px solid var(--line); background: var(--card); }
+  .cmd code { flex: 1; padding: 18px 20px; font-size: 15px; overflow-x: auto; white-space: nowrap; }
+  .cmd code::before { content: "$ "; color: var(--accent); }
+  .cmd button { border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); font: inherit; font-size: 12px; letter-spacing: 0.18em; padding: 0 22px; cursor: pointer; }
+  .cmd button:hover, .cmd button:focus-visible { color: var(--ink); background: var(--accent-soft); outline: none; }
+  .runs { margin-top: 22px; border: 1px solid var(--line); background: var(--card); }
+  .runs-head { display: flex; justify-content: space-between; padding: 10px 18px; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--panel); }
+  .runs-head span:first-child::before { content: "● "; color: var(--accent); }
+  .runs-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .runs-grid div { padding: 16px 18px; border-right: 1px solid var(--line); }
+  .runs-grid div:last-child { border-right: 0; }
+  .runs-grid code { font-weight: 500; }
+  .runs-grid code::before { content: "$ "; color: var(--accent); }
+  .runs-grid small { display: block; color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 14px; margin: 26px 0 22px; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; text-decoration: none; font-weight: 500; border: 1px solid var(--line); background: var(--card); }
+  .btn:hover { border-color: var(--ink); }
+  .btn.primary { background: var(--yellow); color: var(--yellow-ink); border-color: var(--yellow); }
+  .btn.primary:hover { filter: brightness(0.97); }
+  .btn svg { width: 18px; height: 18px; fill: currentColor; }
+  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+  .chips span { border: 1px solid var(--line); background: var(--card); padding: 4px 10px; color: var(--ink); font-size: 13px; }
+  .chips span::before { content: "● "; color: var(--accent); font-size: 10px; vertical-align: 2px; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; }
+  .stat { padding: 36px 30px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); display: flex; flex-direction: column; justify-content: flex-end; min-height: 200px; }
+  .stat:nth-child(2n) { border-right: 0; }
+  .stat:nth-last-child(-n+2) { border-bottom: 0; }
+  .stat .k { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+  .stat .v { font-size: clamp(40px, 4.4vw, 60px); font-weight: 700; letter-spacing: -0.04em; line-height: 1.1; margin: 10px 0 8px; }
+  .stat .v small { font-size: 0.42em; color: var(--faint); letter-spacing: 0; font-weight: 500; margin-left: 4px; }
+  .stat .v.a { color: var(--accent); }
+  .stat p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+
+  /* how */
+  .how { margin: 72px 0 40px; scroll-margin-top: 80px; }
+  .how-head { padding: 56px 56px 40px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: end; }
+  h2 { font-size: clamp(40px, 5.2vw, 76px); line-height: 0.95; letter-spacing: -0.05em; font-weight: 800; margin: 0; }
+  h2 .a { color: var(--accent); }
+  .how-head p { color: var(--muted); margin: 0; font-size: 15px; line-height: 1.75; }
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); }
+  .step { padding: 30px 28px 34px; border-right: 1px solid var(--line); }
+  .step:last-child { border-right: 0; }
+  .step .n { color: var(--accent); font-size: 13px; letter-spacing: 0.16em; }
+  .step h3 { margin: 10px 0 8px; font-size: 20px; letter-spacing: -0.02em; }
+  .step p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
+
+  .lower { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .lower > div { padding: 40px 56px 48px; }
+  .lower > div:first-child { border-right: 1px solid var(--line); }
+  .label { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin: 0 0 16px; }
+  .term { border: 1px solid var(--line); background: var(--card); margin-bottom: 34px; }
+  .term-bar { display: flex; justify-content: space-between; padding: 9px 16px; border-bottom: 1px solid var(--line); background: var(--panel); font-size: 12px; color: var(--faint); }
+  .term pre { margin: 0; padding: 16px 18px; font-size: 13.5px; line-height: 1.9; overflow-x: auto; }
+  .term .p { color: var(--faint); }
+  .term del { color: var(--muted); text-decoration-color: var(--strike); text-decoration-thickness: 2px; }
+  .term ins { text-decoration: none; color: var(--accent); background: var(--accent-soft); padding: 1px 4px; font-weight: 500; }
+  .feat { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+  .feat li { font-size: 14px; line-height: 1.55; color: var(--muted); }
+  .feat b { display: block; color: var(--ink); font-weight: 500; }
+  .feat b::before { content: attr(data-n) " "; color: var(--accent); font-weight: 400; }
+  .ctl { border: 1px solid var(--line); background: var(--card); margin-bottom: 16px; }
+  .ctl h4 { margin: 0; padding: 12px 18px; font-size: 14px; font-weight: 500; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; justify-content: space-between; align-items: center; }
+  .ctl h4 span { color: var(--faint); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 400; }
+  .ctl pre { margin: 0; padding: 14px 18px; font-size: 13px; line-height: 1.8; overflow-x: auto; }
+  .ctl pre .c { color: var(--faint); }
+  .ctl pre .d { color: var(--accent); }
+  .note { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 18px 0 0; }
+
+  footer { border-top: 1px solid var(--line); margin-top: 40px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; padding-top: 24px; padding-bottom: 36px; color: var(--muted); font-size: 13px; }
+  footer a { text-decoration: none; }
+  footer a:hover { color: var(--ink); }
+
+  @media (max-width: 1000px) {
+    .hero-grid, .how-head, .lower { grid-template-columns: 1fr; }
+    .hero-main { border-right: 0; border-bottom: 1px solid var(--line); padding: 44px 28px 36px; }
+    .how-head, .lower > div { padding-left: 28px; padding-right: 28px; }
+    .lower > div:first-child { border-right: 0; border-bottom: 1px solid var(--line); }
+    .steps { grid-template-columns: 1fr 1fr; }
+    .step:nth-child(2) { border-right: 0; }
+    .step:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    .navlinks { display: none; }
+    nav .wrap { justify-content: space-between; }
+  }
+  @media (max-width: 620px) {
+    .wrap { padding: 0 16px; }
+    .runs-grid, .feat { grid-template-columns: 1fr; }
+    .runs-grid div { border-right: 0; border-bottom: 1px solid var(--line); }
+    .runs-grid div:last-child { border-bottom: 0; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .stat { padding: 24px 18px; min-height: 160px; }
+    .steps { grid-template-columns: 1fr; }
+    .step { border-right: 0 !important; border-bottom: 1px solid var(--line); }
+    .step:last-child { border-bottom: 0; }
+    .tabs span:nth-child(n+3) { display: none; }
+    .pill.gh span { display: none; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a class="logo" href="#top" aria-label="smash home">smash<b>[*]</b></a>
+    <div class="navlinks">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#control">Uninstall</a>
+    </div>
+    <span class="pill ver">__VERSION__</span>
+    <a class="pill gh" href="https://github.com/KernelTheory/smash">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      <span>GitHub</span>
+    </a>
+  </div>
+</nav>
+
+<main class="wrap" id="top">
+  <section class="hero">
+    <a class="badge" href="#how">open source · MIT · __VERSION__</a>
+    <div class="frame">
+      <div class="tabs">
+        <span>smash __VERSION__</span>
+        <span>daily secret scrub</span>
+        <span>macOS &amp; Linux</span>
+        <span>one binary</span>
+      </div>
+      <div class="hero-grid">
+        <div class="hero-main">
+          <p class="eyebrow"><i>//</i> a daily secret scrubber for shell history &amp; AI agent logs.</p>
+          <h1>Scrub keys.<span class="a">Daily.</span></h1>
+          <p class="lede">Every API key you've exported, curled or pasted into Claude Code and Codex is still sitting in plain text under your home folder. smash finds those secrets, has a model confirm them, and replaces each one with <code>[REDACTED]</code> in place. Your history stays; the credentials go.</p>
+          <div class="cmd">
+            <code id="install">curl -fsSL https://smash.kerneltheory.com/install.sh | sh</code>
+            <button type="button" data-copy="install" aria-label="Copy install command">COPY</button>
+          </div>
+          <div class="runs">
+            <div class="runs-head"><span>Ways to run</span><span>CLI quick reference</span></div>
+            <div class="runs-grid">
+              <div><code>smash</code><small>set up, preview, confirm</small></div>
+              <div><code>smash run</code><small>scrub now, no prompts</small></div>
+              <div><code>smash log</code><small>what was scanned</small></div>
+            </div>
+          </div>
+          <div class="actions">
+            <a class="btn primary" href="https://github.com/KernelTheory/smash">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+              View on GitHub
+            </a>
+            <a class="btn" href="#how">How it works →</a>
+          </div>
+          <div class="chips">Cleans: <span>zsh</span><span>bash</span><span>Claude Code</span><span>Codex</span></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="k">Local filter</span><div class="v a">92<small>%</small></div><p>fewer lines sent: 61k → 5k on a real 1 GB backlog</p></div>
+          <div class="stat"><span class="k">Today's lines</span><div class="v">0<small>touched</small></div><p>cleaned tomorrow, so your current work stays intact</p></div>
+          <div class="stat"><span class="k">Key at rest</span><div class="v">AES<small>256</small></div><p>provider key stored GCM-encrypted, never in plain text</p></div>
+          <div class="stat"><span class="k">Providers</span><div class="v a">2</div><p>OpenAI gpt-6-luna or Anthropic claude-haiku-5-5</p></div>
+          <div class="stat"><span class="k">Platforms</span><div class="v">4<small>builds</small></div><p>macOS &amp; Linux, Apple Silicon / ARM64 &amp; x86-64</p></div>
+          <div class="stat"><span class="k">Runtime deps</span><div class="v">0</div><p>one static binary, installs without sudo</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="how frame" id="how">
+    <div class="how-head">
+      <h2>Find. Verify.<br><span class="a">Rewrite.</span></h2>
+      <p><span style="color:var(--accent)">//</span> smash runs once a day in the background (launchd on macOS, a systemd timer on Linux) and only looks at what's new since the last run. Only suspicious lines ever leave your machine, and every answer is checked before a byte is changed.</p>
+    </div>
+    <div class="steps">
+      <div class="step"><span class="n">01 / FIND</span><h3>Filter locally</h3><p>Key formats, <code>KEY=value</code>, bearer tokens, URL credentials and high-entropy strings are spotted on your machine.</p></div>
+      <div class="step"><span class="n">02 / ASK</span><h3>Model confirms</h3><p>Suspicious lines go to OpenAI or Anthropic in batches. Only lines with a real secret come back, masked.</p></div>
+      <div class="step"><span class="n">03 / VERIFY</span><h3>Nothing else changes</h3><p>An answer is used only if it's the original line with spans replaced by <code>[REDACTED]</code>.</p></div>
+      <div class="step"><span class="n">04 / REWRITE</span><h3>Atomic, in place</h3><p>Files are rewritten byte-for-byte except the redactions. Lines appended mid-run are kept.</p></div>
+    </div>
+    <div class="lower">
+      <div id="features">
+        <p class="label">Before → after</p>
+        <div class="term">
+          <div class="term-bar"><span>~/.zsh_history</span><span>after smash run</span></div>
+<pre><span class="p">:</span> export OPENAI_API_KEY=<del>sk-proj-9fK2mQx7Lp4Vz8Rt</del><ins>[REDACTED]</ins>
+<span class="p">:</span> curl -H "Authorization: Bearer <del>ghp_7Qm2Lx9Vt4Rz</del><ins>[REDACTED]</ins>" …
+<span class="p">:</span> mysql -u root -p<del>S3cr3tPass!</del><ins>[REDACTED]</ins> app
+<span class="p">:</span> git push origin main</pre>
+        </div>
+        <p class="label">What ships</p>
+        <ul class="feat">
+          <li><b data-n="f.01">Preview first</b>See counts per source and confirm before anything is sent.</li>
+          <li><b data-n="f.02">Incremental</b>Only new lines are checked; clean ones are never re-sent.</li>
+          <li><b data-n="f.03">Today stays</b>Lines dated today wait for tomorrow's run.</li>
+          <li><b data-n="f.04">Live sessions skipped</b>Agent logs touched in the last hour are left alone.</li>
+          <li><b data-n="f.05">Catches up</b>A missed run happens after sleep or reboot.</li>
+          <li><b data-n="f.06">Audit log</b><code>smash log</code> shows files and counts, never the text.</li>
+        </ul>
+      </div>
+      <div id="control">
+        <p class="label">Stay in control</p>
+        <div class="ctl">
+          <h4>Manual runs only<span>macOS</span></h4>
+<pre><span class="c"># remove the daily job, keep smash</span>
+launchctl bootout gui/$(id -u) \
+  ~/Library/LaunchAgents/com.smash.daily.plist
+rm ~/Library/LaunchAgents/com.smash.daily.plist
+<span class="d">smash run</span>   <span class="c"># whenever you like</span></pre>
+        </div>
+        <div class="ctl">
+          <h4>Manual runs only<span>Linux</span></h4>
+<pre><span class="c"># remove the daily timer, keep smash</span>
+systemctl --user disable --now smash.timer
+rm ~/.config/systemd/user/smash.{service,timer}
+systemctl --user daemon-reload
+<span class="d">smash run</span>   <span class="c"># whenever you like</span></pre>
+        </div>
+        <div class="ctl">
+          <h4>Uninstall everything<span>macOS &amp; Linux</span></h4>
+<pre><span class="d">smash uninstall</span>   <span class="c"># job, ~/.smash, binary; asks first</span></pre>
+        </div>
+        <p class="note">Redaction is permanent and smash keeps no backups. Rotate any key it finds: if it was on disk, assume it was read.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>smash<b style="color:var(--accent)">[*]</b> · __VERSION__ · MIT license · KernelTheory</span>
+    <span><a href="https://github.com/KernelTheory/smash">GitHub</a> · <a href="https://github.com/KernelTheory/smash#readme">README</a> · <a href="/install.sh">install.sh</a></span>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll("[data-copy]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var text = document.getElementById(btn.dataset.copy).textContent;
+      var done = function () { btn.textContent = "COPIED"; setTimeout(function () { btn.textContent = "COPY"; }, 1600); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, done);
+      else { var r = document.createRange(); r.selectNodeContents(document.getElementById(btn.dataset.copy)); var s = getSelection(); s.removeAllRanges(); s.addRange(r); done(); }
+    });
+  });
+</script>
+</body>
+</html>
