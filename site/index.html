@@ -29,6 +29,8 @@
     --term: #121417;
     --term-ink: #e9e8e2;
     --term-muted: #8b8e96;
+    --warn: #a14b00;
+    --warn-bg: #fff4e5;
     --shadow: 0 1px 2px rgba(20, 20, 23, 0.04), 0 12px 32px -12px rgba(20, 20, 23, 0.12);
     color-scheme: light;
   }
@@ -36,6 +38,7 @@
     :root:not([data-theme="light"]) {
       --bg: #0c0d0f; --surface: #15171a; --ink: #ecebe6; --muted: #9c9ea6; --line: #26282d;
       --accent: #b8f04a; --hl: #b8f04a; --bar: #ecebe6; --term: #08090a; --term-ink: #e9e8e2; --term-muted: #7d8089;
+      --warn: #f5a524; --warn-bg: #2a1f0d;
       --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px -16px rgba(0, 0, 0, 0.6);
       color-scheme: dark;
     }
@@ -43,6 +46,7 @@
   :root[data-theme="dark"] {
     --bg: #0c0d0f; --surface: #15171a; --ink: #ecebe6; --muted: #9c9ea6; --line: #26282d;
     --accent: #b8f04a; --hl: #b8f04a; --bar: #ecebe6; --term: #08090a; --term-ink: #e9e8e2; --term-muted: #7d8089;
+      --warn: #f5a524; --warn-bg: #2a1f0d;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px -16px rgba(0, 0, 0, 0.6);
     color-scheme: dark;
   }
@@ -100,6 +104,8 @@
   .copy svg { width: 15px; height: 15px; }
   .after { margin: 18px auto 0; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; }
   .after code { color: var(--ink); }
+  .heads-up { margin: 14px auto 0; font-size: 13px; color: var(--warn); }
+  .heads-up a { color: inherit; text-underline-offset: 3px; }
   .cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 30px; }
   .btn { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; padding: 12px 22px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-weight: 500; font-size: 14px; }
   .btn:hover { border-color: var(--ink); }
@@ -156,6 +162,13 @@
   .small { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
   .small b { color: var(--ink); font-weight: 500; }
 
+  .risks { margin-top: 24px; background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); border-radius: 18px; padding: 28px 28px 30px; scroll-margin-top: 80px; }
+  .risks h3 { margin: 0 0 6px; font-size: 20px; letter-spacing: -0.03em; color: var(--warn); }
+  .risks > p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+  .risks ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px 24px; }
+  .risks li { font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+  .risks b { display: block; color: var(--ink); font-weight: 500; margin-bottom: 2px; }
+  .risks li::before { content: "!"; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--warn); color: var(--bg); font-size: 11px; font-weight: 800; margin-bottom: 8px; }
   footer { border-top: 1px solid var(--line); }
   footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 24px; padding-top: 24px; padding-bottom: 32px; font-size: 13px; color: var(--muted); }
   footer a { text-decoration: none; }
@@ -165,6 +178,7 @@
     .pipe { grid-template-columns: 1fr 1fr; }
     .pipe li:nth-child(2)::after { display: none; }
     .cols { grid-template-columns: 1fr; }
+    .risks ul { grid-template-columns: 1fr 1fr; }
     .links { display: none; }
   }
   @media (max-width: 600px) {
@@ -174,6 +188,7 @@
     .install code { font-size: 14px; }
     .copy { justify-content: center; }
     .pipe { grid-template-columns: 1fr; }
+    .risks ul { grid-template-columns: 1fr; }
     .pipe li::after { display: none; }
     .demo pre { font-size: 12.5px; padding: 16px; }
     .ver { display: none; }
@@ -219,6 +234,7 @@
         </button>
       </div>
       <p class="after"><span>then <code>smash</code> to set up and preview</span><span><code>smash run</code> to scrub now</span><span><code>smash log</code> to see what changed</span></p>
+      <p class="heads-up">⚠ Rewrites your history and agent logs in place, with no backups. <a href="#risks">Read the risks before you run it ↓</a></p>
 
       <div class="cta">
         <a class="btn dark" href="https://github.com/KernelTheory/smash" target="_blank" rel="noopener noreferrer">
@@ -292,6 +308,18 @@ systemctl --user daemon-reload
 <span class="h">smash uninstall</span>  <span class="c"># removes the job, ~/.smash and the binary; asks first</span></pre>
           <p class="small"><b>Redaction is permanent</b>, and smash keeps no backups. Rotate any key it finds: if it was on disk, assume it was read.</p>
         </div>
+      </div>
+      <div class="risks" id="risks">
+        <h3>Know the risks</h3>
+        <p>smash changes files you may care about. Read this before your first run.</p>
+        <ul>
+          <li><b>Redaction is permanent.</b>No backups, on purpose: a backup would be another copy of the secret. Anything wrongly masked is gone too.</li>
+          <li><b>Old agent sessions may not resume.</b>Claude Code and Codex replay their logs on resume; an older session smash edited may fail or lose earlier reasoning. Today's and active sessions are never touched.</li>
+          <li><b>Suspicious lines go to a provider.</b>Flagged lines, which can include real secrets, are sent to OpenAI or Anthropic to be confirmed.</li>
+          <li><b>It can miss secrets.</b>Both the filter and the model are heuristics. Rotate any key you find: if it was on disk, assume it was read.</li>
+          <li><b>Not protection against malware.</b>Anything running as you can read your history before it's cleaned, and smash's config with its key.</li>
+          <li><b>Open shells can write old lines back.</b>A running shell keeps history in memory. Restart open terminals after a run.</li>
+        </ul>
       </div>
     </div>
   </section>

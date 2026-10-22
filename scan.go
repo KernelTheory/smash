@@ -170,10 +170,14 @@ func jsonRecord(raw []byte) ([]string, time.Time) {
 	walk = func(v any) {
 		switch v := v.(type) {
 		case string:
-			out = append(out, v)
+			if !isDataURL(v) {
+				out = append(out, v)
+			}
 		case map[string]any:
-			for _, x := range v {
-				walk(x)
+			for k, x := range v {
+				if !opaqueField(v, k) {
+					walk(x)
+				}
 			}
 		case []any:
 			for _, x := range v {
@@ -205,4 +209,26 @@ func jsonEscape(s string) []byte {
 	enc.SetEscapeHTML(false)
 	enc.Encode(s)
 	return b.Bytes()[1 : b.Len()-2] // drop quotes and newline
+}
+
+// opaqueField reports whether m[k] is provider-generated encrypted, signed or binary data:
+// Codex reasoning encrypted_content, Claude thinking signatures and redacted_thinking data, and
+// base64 image sources. They hold nothing a user typed, are sent back to the provider verbatim
+// when a session resumes, and can contain key-like substrings by chance, so they're never
+// scanned or changed.
+func opaqueField(m map[string]any, k string) bool {
+	switch k {
+	case "encrypted_content", "signature":
+		return true
+	case "data":
+		t, _ := m["type"].(string)
+		return t == "redacted_thinking" || t == "base64"
+	}
+	return false
+}
+
+// isDataURL reports whether s is an inline base64 data: URL (e.g. a pasted image).
+func isDataURL(s string) bool {
+	head := s[:min(len(s), 100)]
+	return strings.HasPrefix(head, "data:") && strings.Contains(head, ";base64,")
 }

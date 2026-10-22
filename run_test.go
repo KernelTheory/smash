@@ -211,3 +211,46 @@ func TestRunSkipsToday(t *testing.T) {
 		t.Errorf("held-back lines not redacted next day:\n%s", all)
 	}
 }
+
+// Encrypted/signed blobs must never be sent or changed, even when a key-like string appears
+// inside them by chance; the real secret next to them must still be redacted.
+func TestRunLeavesOpaqueBlobsAlone(t *testing.T) {
+	home := t.TempDir()
+	blobs := map[string]string{
+		"encrypted_content": "gAAAAABn_x-sk-proj-DUMMYINCODEXBLOB1234567890-_zz",
+		"signature":         "EqQBCkYIBhgCIkA+sk-proj-DUMMYINSIGNATURE123456/xyz==",
+		"redacted":          "Ep8CCkYIBRgCKkBsk-proj-DUMMYINREDACTED1234567890ab==",
+		"image":             "iVBORw0KGgoAAAANSUhEUgsk-proj-DUMMYINIMAGEDATA1234567==",
+		"dataurl":           "data:image/png;base64,iVBORsk-proj-DUMMYINDATAURL1234567890",
+	}
+	line1 := fmt.Sprintf(`{"type":"response_item","payload":{"type":"reasoning","encrypted_content":%q}}`, blobs["encrypted_content"])
+	line2 := fmt.Sprintf(`{"message":{"content":[{"type":"thinking","thinking":"","signature":%q},{"type":"redacted_thinking","data":%q},`+
+		`{"type":"image","source":{"type":"base64","media_type":"image/png","data":%q}},{"type":"text","text":"export K=sk-proj-REALDUMMY1234567890abcd"}]}}`,
+		blobs["signature"], blobs["redacted"], blobs["image"])
+	line3 := fmt.Sprintf(`{"payload":{"type":"message","content":[{"type":"input_image","image_url":%q}]}}`, blobs["dataurl"])
+	session := home + "/.codex/sessions/2026/10/01/rollout-1.jsonl"
+	put(t, session, line1+"\n"+line2+"\n"+line3+"\n", 2*time.Hour)
+
+	var sent []string
+	srv := fakeOpenAI(t, &sent)
+	defer srv.Close()
+	db, _ := openDB(filepath.Join(home, ".smash", "smash.db"))
+	r := &runner{home: home, db: db, ai: &openAI{url: srv.URL, key: "test-key", model: "m"}, out: io.Discard}
+	if _, err := r.run(); err != nil {
+		t.Fatal(err)
+	}
+	got := read(t, session)
+	for name, b := range blobs {
+		if !strings.Contains(got, b) {
+			t.Errorf("%s blob was changed", name)
+		}
+	}
+	if strings.Contains(got, "REALDUMMY") || !strings.Contains(got, "export K=[REDACTED]") {
+		t.Errorf("real secret not redacted:\n%s", got)
+	}
+	for _, s := range sent {
+		if strings.Contains(s, "DUMMYIN") {
+			t.Errorf("blob content was sent to the model: %q", s)
+		}
+	}
+}

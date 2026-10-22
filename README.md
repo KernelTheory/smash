@@ -10,6 +10,8 @@ smash scrubs those secrets once a day, in place, without touching the rest of yo
 curl -fsSL https://keysmash.website/install.sh | sh
 ```
 
+> **Before you run it:** smash permanently rewrites your shell history and Claude Code / Codex session logs, with no backups, and sends suspicious lines to OpenAI or Anthropic. Read [Risks](#risks) first.
+
 ```text
 before:  export OPENAI_API_KEY=sk-proj-9fK2mQx7Lp4Vz8Rt3Nw6Yb1H…
 after:   export OPENAI_API_KEY=[REDACTED]
@@ -23,6 +25,17 @@ after:   export OPENAI_API_KEY=[REDACTED]
 4. **Rewrite in place.** History and log files are rewritten atomically, byte-for-byte identical except for the redactions. Anything appended while smash was working is kept.
 
 Then it does this again every day in the background.
+
+## Risks
+
+smash changes files you may care about. Read this before your first run.
+
+- **Redaction is permanent.** smash keeps no backups, on purpose: a backup would be another copy of the secret. If the model masks something that wasn't a secret, that text is gone too.
+- **Resuming old agent sessions may break.** smash edits Claude Code and Codex session logs in place, and those tools replay a log when you resume a session. Anthropic's API can reject, or drop the model's earlier reasoning from, a conversation whose earlier messages were edited, so resuming an older Claude session that smash redacted may fail or lose context. A resumed session also sees `[REDACTED]` where the value was. smash never touches today's lines or sessions active in the last hour, and never changes encrypted or signed data such as Codex's `encrypted_content`, Claude's thinking signatures or inline images.
+- **Suspicious lines go to a third party.** The lines the local filter flags, which can include real secrets, are sent to OpenAI or Anthropic to be confirmed. OpenAI requests are sent with `store: false`; check your provider's data policy if that matters to you.
+- **It can miss secrets.** The local filter and the model are both heuristics, so a secret in an unusual format may survive. **Rotate any key you find in your history:** if it was on disk, assume it was read.
+- **It isn't protection against malware.** Anything running as your user can read your history before smash cleans it, and can read smash's encrypted config together with the database that holds its key.
+- **Open shells can write old lines back.** A running shell keeps its history in memory and may save it again when it exits. Restart open terminals after a run.
 
 ## What it cleans
 
@@ -77,10 +90,7 @@ The first run works through your whole backlog, which can take a few minutes. Da
 
 ### What to expect
 
-- **Redaction is permanent.** smash keeps no backups; that would defeat the point. A redacted key is gone from the file.
-- **Restart open shells after a run.** A running shell keeps its history in memory and can write old lines back when it exits.
 - **Costs are small.** You pay your provider only for the suspicious lines, typically well under 100 tokens each plus a short instruction per batch of up to 100 lines. The first run covers your backlog; daily runs send very little.
-- **What the provider sees:** the suspicious lines, nothing else. OpenAI requests are sent with `store: false`. Check your provider's data policy if that matters to you.
 
 ## Updating
 
@@ -160,11 +170,9 @@ systemctl --user daemon-reload
 rm -rf ~/.smash ~/.local/bin/smash
 ```
 
-## Security notes
+## Platforms
 
-- smash reduces how long secrets sit around in plain text. It doesn't make a compromised machine safe. Malware running as your user can read anything your user can, including smash's encrypted config and the database holding its key.
-- **Rotate any key you find in your history.** If it was on disk, assume it may have been read.
-- Windows isn't supported natively. Inside WSL, smash cleans WSL's own history and logs.
+macOS and Linux, on Apple Silicon / ARM64 and Intel / x86-64. Windows isn't supported natively; inside WSL, smash cleans WSL's own history and logs.
 
 ## Build from source
 
