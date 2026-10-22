@@ -175,6 +175,11 @@ func TestRunSkipsToday(t *testing.T) {
 		`{"display":"key ghp_NEWDUMMY1234567890abcd","timestamp":%d}`+"\n", yesterday.UnixMilli(), today.UnixMilli()), 2*time.Hour)
 	put(t, home+"/.zsh_history", fmt.Sprintf(": %d:0;export C=sk-proj-OLDZSH1234567890abcdef\n: %d:0;export D=sk-proj-NEWZSH1234567890abcdef\n",
 		yesterday.Unix(), today.Unix()), 0)
+	// Age the logs against the test's fixed clock, not the real one, so "not a live session"
+	// holds whatever time the test runs.
+	for _, f := range []string{session, prompts} {
+		os.Chtimes(f, now.Add(-2*time.Hour), now.Add(-2*time.Hour))
+	}
 
 	var sent []string
 	srv := fakeOpenAI(t, &sent)

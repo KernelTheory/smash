@@ -44,6 +44,8 @@ Then it does this again every day in the background.
 - **Two providers.** OpenAI or Anthropic, chosen at setup and switchable in the config.
 - **API key encrypted at rest.** The provider key in `~/.smash/config` is stored as AES-256-GCM ciphertext; the encryption key lives in smash's local database.
 - **A log you can check.** `smash log` shows which files were scanned, with how many lines were suspicious, redacted or rejected. It never stores the text itself.
+- **Live progress.** In a terminal, scans show a progress line with a little secret-shredding animation. The background job logs plain text.
+- **Self-update.** `smash update` installs the latest release after verifying its checksum.
 - **Clean uninstall.** `smash uninstall` removes the background job, the config, the database and the binary.
 
 ## Usage
@@ -52,6 +54,7 @@ Then it does this again every day in the background.
 smash             # first-time setup, or preview + confirm a run now
 smash run         # scan and redact now, without prompts (what the daily job runs)
 smash log         # recent scans: file, status, suspicious / redacted / rejected counts
+smash update      # install the latest release (checksum verified)
 smash version
 smash uninstall   # remove smash completely (asks first)
 ```
@@ -78,6 +81,14 @@ The first run works through your whole backlog, which can take a few minutes. Da
 - **Restart open shells after a run.** A running shell keeps its history in memory and can write old lines back when it exits.
 - **Costs are small.** You pay your provider only for the suspicious lines, typically well under 100 tokens each plus a short instruction per batch of up to 100 lines. The first run covers your backlog; daily runs send very little.
 - **What the provider sees:** the suspicious lines, nothing else. OpenAI requests are sent with `store: false`. Check your provider's data policy if that matters to you.
+
+## Updating
+
+```sh
+smash update
+```
+
+This checks `https://smash.kerneltheory.com` for a newer release. If there is one, it downloads the build for your platform, verifies its SHA-256 checksum and replaces `~/.local/bin/smash` in place. Your config, database and daily job are kept; the job uses the new version from its next run. Re-running the install command does the same.
 
 ## Configuration
 

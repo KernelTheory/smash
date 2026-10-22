@@ -32,10 +32,12 @@ func main() {
 			err = printLog(home)
 		case "uninstall":
 			err = uninstall(home, bufio.NewReader(os.Stdin))
+		case "update":
+			err = selfUpdate(home)
 		case "version":
 			fmt.Println("smash", version)
 		default:
-			fmt.Fprintln(os.Stderr, "usage: smash        set up, preview and redact\n       smash run    redact new content (used by the daily job)\n       smash log    show recent scans\n       smash version\n       smash uninstall  remove the daily job, ~/.smash and the installed binary\n\nConfig: ~/.smash/config (PROVIDER=openai|anthropic, OPENAI_API_KEY, ANTHROPIC_API_KEY)")
+			fmt.Fprintln(os.Stderr, "usage: smash        set up, preview and redact\n       smash run    redact new content (used by the daily job)\n       smash log    show recent scans\n       smash update     install the latest release\n       smash version\n       smash uninstall  remove the daily job, ~/.smash and the installed binary\n\nConfig: ~/.smash/config (PROVIDER=openai|anthropic, OPENAI_API_KEY, ANTHROPIC_API_KEY)")
 			os.Exit(2)
 		}
 	}
@@ -83,7 +85,7 @@ func interactive(home string) error {
 
 	r := &runner{home: home, db: db, out: os.Stderr}
 	fmt.Println("\nLooking for suspicious lines (nothing leaves this machine yet)...")
-	rep, err := r.run()
+	rep, err := r.runWithProgress()
 	if err != nil {
 		return err
 	}
@@ -100,7 +102,7 @@ func interactive(home string) error {
 		return nil
 	}
 	r.ai = ai
-	if rep, err = r.run(); err != nil {
+	if rep, err = r.runWithProgress(); err != nil {
 		return err
 	}
 	fmt.Printf("Done: %d redacted, %d rejected in %d files. Details: smash log\n", rep.redacted, rep.rejected, rep.files)
@@ -122,7 +124,7 @@ func daily(home string) error {
 		return err
 	}
 	r := &runner{home: home, db: db, ai: ai, out: os.Stderr}
-	rep, err := r.run()
+	rep, err := r.runWithProgress()
 	fmt.Printf("%s scanned %d files (%s), %d suspicious, %d redacted, %d rejected, %d skipped\n",
 		time.Now().Format(time.RFC3339), rep.files, mb(rep.bytes), rep.candidates, rep.redacted, rep.rejected, rep.skipped)
 	return err

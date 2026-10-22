@@ -19,5 +19,6 @@ for t in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64; do
 done
 cd $out && sha256sum smash_*.tar.gz > checksums.txt
 "
+echo "$v" > "$out/VERSION" # read by smash update
 cp install.sh dist/install.sh
 echo "Built $out"

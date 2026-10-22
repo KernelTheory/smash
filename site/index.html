@@ -288,7 +288,8 @@ systemctl --user disable --now smash.timer
 rm ~/.config/systemd/user/smash.{service,timer}
 systemctl --user daemon-reload
 <span class="h">smash run</span>  <span class="c"># whenever you like</span></pre>
-<pre class="code"><span class="h">smash uninstall</span>  <span class="c"># removes the job, ~/.smash and the binary; asks first</span></pre>
+<pre class="code"><span class="h">smash update</span>     <span class="c"># install the latest release, checksum verified</span>
+<span class="h">smash uninstall</span>  <span class="c"># removes the job, ~/.smash and the binary; asks first</span></pre>
           <p class="small"><b>Redaction is permanent</b>, and smash keeps no backups. Rotate any key it finds: if it was on disk, assume it was read.</p>
         </div>
       </div>

@@ -5,13 +5,15 @@ smash is a CLI that removes secrets from shell history and AI coding-agent logs 
 ## Architecture
 - Go, single package `main`. Dependencies: stdlib, `modernc.org/sqlite` (pure Go, so every target cross-compiles from Docker without cgo) and `github.com/anthropics/anthropic-sdk-go`. OpenAI is called with plain `net/http`.
 - Files:
-  - `main.go`: CLI dispatch (`smash`, `smash run`, `smash log`, `smash version`, `smash uninstall`), interactive setup and preview.
+  - `main.go`: CLI dispatch (`smash`, `smash run`, `smash log`, `smash update`, `smash version`, `smash uninstall`), interactive setup and preview.
   - `config.go`: `~/.smash/config` parsing and API-key encryption.
   - `run.go`: sources, incremental state, the scan → model → apply pipeline, SQLite schema.
   - `scan.go`: local suspicious-line filter, snippet windows, response validation (`masked`), JSONL replacement.
   - `history.go`: zsh/bash history parser and encoder, atomic writes.
   - `openai.go`, `anthropic.go`: the two `redactor` implementations sharing one prompt and JSON schema.
   - `schedule.go`: daily job (launchd on macOS, systemd user timer on Linux).
+  - `update.go`: `smash update` reads `releases/latest/VERSION`, and if newer (semver), downloads `releases/<v>/smash_<os>_<arch>.tar.gz` (pinned version dir), checks it against that release's `checksums.txt`, extracts `smash` and renames it over `~/.local/bin/smash`. Refuses dev builds and copies not installed by install.sh; never downgrades.
+  - `progress.go`: animated status line (spinner + "shredder" bar of random key chars crumbling into █) on a terminal only; nil `*progress` is a no-op. `runner.runWithProgress` routes `runner.out` through it so messages print above the bar.
 - `smash` (interactive): first run picks a provider and asks for the key (hidden) → preview run (counts only; nothing sent or written) → confirm → real run → offer the daily job. `smash run` is the non-interactive path the daily job uses.
 - Sources: shell history (`$HISTFILE`, `~/.zsh_history`, `~/.zhistory`, `~/.bash_history`), `~/.claude/projects/**/*.jsonl`, `~/.codex/sessions/**/*.jsonl`, `~/.claude/history.jsonl`, `~/.codex/history.jsonl`.
 - Daily job: macOS → `~/Library/LaunchAgents/com.smash.daily.plist` (10:00, `StartCalendarInterval` catches up after sleep, logs to `~/.smash/launchd.log`). Linux with a systemd user manager (`systemctl --user show-environment` succeeds) → `~/.config/systemd/user/smash.{service,timer}` (`OnCalendar=*-*-* 10:00:00`, `Persistent=true`, logs in `journalctl --user -u smash`; prints the `loginctl enable-linger` hint, never enables it). Otherwise print a crontab line. `smash uninstall` stops both kinds, deletes `jobFiles()`, `~/.smash` and `~/.local/bin/smash` (a symlink there is removed, never its target).
@@ -40,7 +42,7 @@ smash is a CLI that removes secrets from shell history and AI coding-agent logs 
 
 ## Distribution
 - `install.sh` installs to `~/.local/bin` from `$SMASH_BASE` (default `https://smash.kerneltheory.com`): `releases/<version|latest>/smash_<os>_<arch>.tar.gz`, verified against `checksums.txt`. On a fresh install with a terminal it runs `smash </dev/tty` for first-time setup (stdin is the script pipe); without a terminal or with `SMASH_NO_SETUP=1` it prints a hint; a reinstall keeps the existing setup.
-- Releases are annotated git tags. `scripts/release.sh vX.Y.Z` refuses a dirty tree or an untagged `HEAD`, then builds darwin/linux × arm64/amd64 in Docker with `-X main.version` into `dist/` (laid out as served). `scripts/deploy.sh vX.Y.Z` with `SMASH_DEPLOY=user@host:/var/www/smash` uploads releases, `install.sh` and the landing page (`site/index.html`, `__VERSION__` replaced), then repoints `releases/latest`.
+- Releases are annotated git tags. `scripts/release.sh vX.Y.Z` refuses a dirty tree or an untagged `HEAD`, then builds darwin/linux × arm64/amd64 in Docker with `-X main.version` into `dist/` (laid out as served), plus `releases/<v>/VERSION` for `smash update`. `scripts/deploy.sh vX.Y.Z` with `SMASH_DEPLOY=user@host:/var/www/smash` uploads releases, `install.sh` and the landing page (`site/index.html`, `__VERSION__` replaced), then repoints `releases/latest`.
 - `deploy/server-setup.sh` is the one-time nginx + Let's Encrypt setup for the download host (run with sudo; `SMASH_DOMAIN`, `SMASH_OWNER`).
 
 ## Constraints

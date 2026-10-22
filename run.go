@@ -64,11 +64,14 @@ type runner struct {
 	db   *sql.DB
 	ai   redactor // nil = preview: count only, send and write nothing
 	out  io.Writer
+	prog *progress // terminal status line; nil when output isn't a terminal
 
-	now        time.Time // zero = time.Now(); lines dated on or after its local midnight wait for the next day
-	at, cutoff time.Time // this run's clock and its local midnight
-	seen       map[string]bool
-	rep        report
+	now         time.Time // zero = time.Now(); lines dated on or after its local midnight wait for the next day
+	at, cutoff  time.Time // this run's clock and its local midnight
+	seen        map[string]bool
+	pos, nfiles int // progress through sources, for the status line
+	sent        int // snippets sent to the model this run
+	rep         report
 }
 
 type source struct {
@@ -143,6 +146,7 @@ func tailHash(data []byte, off int) string { return hash(data[max(0, off-4096):o
 func (r *runner) run() (report, error) {
 	r.rep = report{bySource: map[string]*summary{}}
 	r.seen = map[string]bool{}
+	r.sent = 0
 	r.at = r.now
 	if r.at.IsZero() {
 		r.at = time.Now()
@@ -159,9 +163,16 @@ func (r *runner) run() (report, error) {
 	}
 	rows.Close()
 
+	verb := "smashing"
+	if r.ai == nil {
+		verb = "scanning"
+	}
 	var pending []*job
 	items, held := 0, 0
-	for _, src := range r.sources() {
+	srcs := r.sources()
+	for i, src := range srcs {
+		r.pos, r.nfiles = i, len(srcs)
+		r.prog.set(verb, i, len(srcs), fmt.Sprintf("%s %d/%d", src.name, i+1, len(srcs)))
 		j, status, err := r.scan(src)
 		if err != nil {
 			fmt.Fprintf(r.out, "smash: %s: %v\n", src.path, err)
@@ -181,7 +192,9 @@ func (r *runner) run() (report, error) {
 			pending, items, held = nil, 0, 0
 		}
 	}
-	return r.rep, r.flush(pending)
+	err = r.flush(pending)
+	r.prog.set(verb, len(srcs), len(srcs), "done")
+	return r.rep, err
 }
 
 func (r *runner) scan(src source) (*job, string, error) {
@@ -285,7 +298,9 @@ func (r *runner) flush(jobs []*job) error {
 			size += len(items[hi].Text)
 			hi++
 		}
+		r.prog.set("asking", r.pos, r.nfiles, fmt.Sprintf("model · %d lines sent", r.sent))
 		got, err := r.ai.redact(items[lo:hi])
+		r.sent += hi - lo
 		if errors.Is(err, errRefused) {
 			for _, it := range items[lo:hi] {
 				rejected[it.Text] = true
@@ -403,4 +418,14 @@ func (r *runner) add(name string, sum summary) {
 	}
 	r.rep.bySource[name].add(sum)
 	r.rep.summary.add(sum)
+}
+
+// runWithProgress is run() with the animated status line when stderr is a terminal.
+func (r *runner) runWithProgress() (report, error) {
+	if r.prog = newProgress(os.Stderr); r.prog != nil {
+		out := r.out
+		r.out = r.prog
+		defer func() { r.prog.finish(); r.out, r.prog = out, nil }()
+	}
+	return r.run()
 }
