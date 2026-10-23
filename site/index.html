@@ -62,7 +62,9 @@
   header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); }
   header .wrap { display: flex; align-items: center; gap: 12px; height: 68px; }
   .logo { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; letter-spacing: -0.03em; text-decoration: none; margin-right: auto; }
-  .logo i { width: 22px; height: 9px; border-radius: 2px; background: var(--hl); display: inline-block; }
+  .logo img { width: 34px; height: 34px; display: block; }
+  :root[data-theme="dark"] .logo img { filter: invert(1); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo img { filter: invert(1); } }
   .links { display: flex; gap: 4px; margin-right: 8px; }
   .links a { text-decoration: none; color: var(--muted); padding: 8px 12px; border-radius: 999px; font-size: 14px; }
   .links a:hover { color: var(--ink); background: var(--surface); }
@@ -202,7 +204,7 @@
 <body>
 <header>
   <div class="wrap">
-    <a class="logo" href="#top" aria-label="smash home"><i></i>smash</a>
+    <a class="logo" href="#top" aria-label="smash home"><img src="fist_logo_header_256.png" alt="" width="34" height="34">smash</a>
     <nav class="links" aria-label="Sections">
       <a href="#how">How it works</a>
       <a href="#ships">Features</a>

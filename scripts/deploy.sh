@@ -10,5 +10,5 @@ dir="${target#*:}"
 sed "s/__VERSION__/$v/g" site/index.html > dist/index.html
 ssh "$host" "mkdir -p '$dir/releases/$v'"
 scp dist/releases/"$v"/* "$host:$dir/releases/$v/"
-scp dist/install.sh dist/index.html "$host:$dir/"
+scp dist/install.sh dist/index.html site/fist_logo_header_256.png "$host:$dir/"
 ssh "$host" "ln -sfn '$v' '$dir/releases/latest' && ls -l '$dir/releases'"
