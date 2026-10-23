@@ -1,40 +1,26 @@
 #!/bin/sh
-# Counts smash downloads in the download host's nginx access logs (current and rotated).
-# install.sh fetches the tarball with curl and `smash update` with Go's HTTP client, so the
-# user agent tells installs from updates. Counting runs on the server; IPs are never printed.
+# Prints smash download counts from ~/smash-stats/downloads.csv on the download host, after
+# bringing it up to yesterday with the collector that scripts/deploy.sh installs there.
 #   SMASH_DEPLOY=deploy@your-server:/var/www/smash scripts/stats.sh
 set -eu
 target="${SMASH_DEPLOY:?set SMASH_DEPLOY=user@host:/web/root}"
-ssh "${target%%:*}" sh -s <<'EOF'
-set -eu
-zcat -f /var/log/nginx/access.log* | awk -F'"' '
-$2 ~ /^GET \/releases\/[^ ]+\/smash_[a-z]+_[a-z0-9]+\.tar\.gz / && $3 ~ /^ 200 / {
-	split($1, f, " ")
-	ip = f[1]
-	d = substr(f[4], 2, 11) # 23/Oct/2026
-	day = substr(d, 8, 4) "-" sprintf("%02d", (index("JanFebMarAprMayJunJulAugSepOctNovDec", substr(d, 4, 3)) + 2) / 3) "-" substr(d, 1, 2)
-	if (first == "" || day < first) first = day
-	if (day > last) last = day
-	k = $6 ~ /^curl\// ? "installs" : $6 ~ /^Go-http-client\// ? "updates" : "other"
-	n[k]++
-	if (!((k, ip) in seen)) { seen[k, ip]; u[k]++ }
-	if (!(ip in all)) { all[ip]; people++ }
-	match($2, /smash_[a-z]+_[a-z0-9]+/)
-	p = substr($2, RSTART + 6, RLENGTH - 6)
-	if (!(p in plat)) order[++np] = p
-	plat[p]++
-	total++
+ssh "${target%%:*}" '[ -f ~/smash-stats/collect.sh ] || { echo "smash stats: collector missing; run scripts/deploy.sh first" >&2; exit 1; }
+sh ~/smash-stats/collect.sh && cat ~/smash-stats/downloads.csv' | awk -F, '
+NR == 1 { for (i = 6; i <= NF; i++) plat[i] = $i; next }
+{
+	row[++r] = $0
+	for (i = 2; i <= NF; i++) t[i] += $i
 }
 END {
-	if (!total) { print "No smash downloads in the logs."; exit }
-	printf "smash downloads, %s to %s (as far back as the logs go)\n\n", first, last
-	printf "%-10s %9s %11s\n", "", "downloads", "unique IPs"
-	printf "%-10s %9d %11d   install.sh (curl)\n", "installs", n["installs"], u["installs"]
-	printf "%-10s %9d %11d   smash update\n", "updates", n["updates"], u["updates"]
-	printf "%-10s %9d %11d   browsers, scripts\n", "other", n["other"], u["other"]
-	printf "%-10s %9d %11d\n\n", "total", total, people
-	printf "platforms:"
-	for (i = 1; i <= np; i++) printf " %s %d", order[i], plat[order[i]]
-	print ""
+	if (!r) { print "No smash downloads recorded yet (today is counted tomorrow)."; exit }
+	split(row[1], a, ","); split(row[r], b, ",")
+	printf "smash downloads, %s to %s (finished days; today is counted tomorrow)\n\n", a[1], b[1]
+	printf "all time   installs %d   updates %d   other %d   total %d\n", t[2], t[3], t[4], t[2] + t[3] + t[4]
+	printf "platforms "
+	for (i = 6; i in plat; i++) printf "  %s %d", plat[i], t[i]
+	printf "\n\n%-10s %9s %8s %6s %11s\n", "day", "installs", "updates", "other", "unique IPs"
+	for (j = (r > 14 ? r - 13 : 1); j <= r; j++) {
+		split(row[j], c, ",")
+		printf "%-10s %9d %8d %6d %11d\n", c[1], c[2], c[3], c[4], c[5]
+	}
 }'
-EOF
